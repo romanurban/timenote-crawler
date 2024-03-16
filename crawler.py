@@ -11,7 +11,7 @@ import re
 BASE_URL = "https://timenote.info/en/person/list"
 
 # Define a list of cemetery IDs for which we want to crawl the data
-cemeteries = [211, 89] # Add more cemetery IDs as needed
+cemeteries = [147] # Add more cemetery IDs as needed
 
 # The parameters required for the request
 params = {
