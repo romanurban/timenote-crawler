@@ -6,7 +6,6 @@ root_dir = 'data'
 
 base_url = 'https://media2.nekropole.info/'
 
-# creating clean JSON out of the initial data
 for subdir in next(os.walk(root_dir))[1]:
     json_file_path = os.path.join(root_dir, subdir, 'data.json')
     new_json_file_path = os.path.join(root_dir, subdir, 'data_clean.json')
