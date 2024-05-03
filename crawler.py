@@ -7,20 +7,20 @@ import json
 import os
 import re
 
-# Base URL for the cemetery list
+# base URL for the cemetery person list
 BASE_URL = "https://timenote.info/en/person/list"
 
-# Define a list of cemetery IDs for which we want to crawl the data
-cemeteries = [147] # Add more cemetery IDs as needed
+# cemetery IDs for which we want to crawl the data
+cemeteries = [147]
 
-# The parameters required for the request
+# request params
 params = {
-    'cemetery_id': None, # This will be set for each cemetery in the loop
-    'order': 4,
-    'start': 0 # This will be updated as we paginate through results
+    'cemetery_id': None, # set for each cemetery
+    'order': 4, # order by date of death
+    'start': 0 # pagination
 }
 
-# We will store the data for each cemetery in this structure
+# resulting structure
 data = {
     # cemetery_id: [list of data entries for each person]
 }
@@ -29,7 +29,7 @@ def get_cemetery_name(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
     title = soup.find('title').get_text()
-    # Remove any characters not suitable for directory names
+    # remove any characters not suitable for directory names
     valid_name = re.sub('[^a-zA-Z0-9 \n\.]', '', title)
     return valid_name.strip()
 
@@ -37,31 +37,30 @@ def get_individual_data(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    # Check if the main image is missing
+    # check whether the main image is missing
     no_image = soup.select_one('.photo-main .no_person_image')
     if no_image:
-        # Skip this person if no main image is found
+        # skip person if no main image
         return None
     
     person_name_container = soup.find('span', class_='person-name')
     if person_name_container:
-        # Extract the text while excluding any child elements (like <span class='font carret-right'></span>)
+        # extract the text
         person_name = ''.join(person_name_container.find_all(text=True, recursive=False)).strip()
     else:
         person_name = "Name not found"
 
-    # Extract the first image URL if available
+    # get the first image URL
     main_image_a_tag = soup.select_one('.person-header-images .photo-main a')
     if main_image_a_tag and 'href' in main_image_a_tag.attrs:
         main_image_url = 'https:' + main_image_a_tag['href']
     else:
-        # If no clickable image link is found, return None to indicate skipping this person
+        # no image found
         return None
 
-    # Continue to extract additional details since an image is found
+    # looking for additional details
     attributes = {dt.get_text(strip=True): dd.get_text(strip=True) for dt, dd in zip(soup.select('.attributes dt'), soup.select('.attributes dd'))}
-    
-    # Accessing the attributes directly with English keys
+
     birth_date = attributes.get('Birth Date:', None)
     death_date = attributes.get('Death date:', None)
     nationality = attributes.get('Nationality:', None)
@@ -82,7 +81,6 @@ def get_individual_data(url):
         'cemetery_info': cemetery_info
     }
 
-# Function to get the total number of records from the first page
 def get_total_records(cemetery_id):
     params['cemetery_id'] = cemetery_id
     params['start'] = 0
@@ -90,7 +88,7 @@ def get_total_records(cemetery_id):
     soup = BeautifulSoup(response.content, 'html.parser')
     pagination_links = soup.select('.splits a')
     if not pagination_links:
-        return 0  # Return 0 if no pagination links found
+        return 0  # no pagination links found
     last_page_link = pagination_links[-1]['href']
     last_page_start = int(last_page_link.split('start=')[-1])
     last_page_text = pagination_links[-1].text
@@ -99,23 +97,20 @@ def get_total_records(cemetery_id):
     return total_records
 
 def save_data_to_disk(cemetery_name, cemetery_data):
-    # Sanitize the cemetery name to use it as a directory name
+    # sanitize the cemetery name to use it as a directory name
     directory_name = re.sub('[^a-zA-Z0-9 \n\.]', '', cemetery_name).replace(' ', '_')
     save_directory = f'data/{directory_name}'
     
-    # Ensure the directory exists
     os.makedirs(save_directory, exist_ok=True)
     
-    # Define the file path
     json_file_path = os.path.join(save_directory, 'data.json')
     
-    # Save the data to the JSON file
+    # save results to JSON
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(cemetery_data, json_file, ensure_ascii=False, indent=4)
     
     print(f'Data for cemetery {cemetery_name} has been saved to {json_file_path}')
 
-# Function to handle the crawling of one cemetery
 def crawl_cemetery(cemetery_id):
     current_start = 0
     cemetery_data = []
@@ -140,15 +135,12 @@ def crawl_cemetery(cemetery_id):
         for row in rows:
             try:
                 href = row.select_one('.person-link')['href']  # Define href before checking for images
-                # Correctly identify rows with no images before fetching details
                 no_image_male = row.select_one('.no-image-male')
                 no_image_female = row.select_one('.no-image-female')
                 if no_image_male or no_image_female:
                     print(f"Skipping {href} because no image found")
                     continue
 
-
-                # Call the function to visit individual page and get detailed data
                 detailed_data = get_individual_data(f"https://timenote.info{href}")
                 
                 if detailed_data is not None: 
@@ -159,16 +151,15 @@ def crawl_cemetery(cemetery_id):
 
                     cemetery_data.append(cleaned_data)
                 
-                # Simulate a random sleep duration to be polite and not overload the server
+                # random sleep duration to be polite and not overload the server
                 time.sleep(random.uniform(0.5, 2.5))
             except Exception as e:
                 print(f"An error occurred processing {href}: {e}")
                 continue
 
-        # Find the link to the next page
+        # next page link
         next_page_link = soup.select_one('a[rel="next"]')
         if next_page_link and 'href' in next_page_link.attrs:
-            # Extract the start parameter from the next page link
             next_page_url = next_page_link['href']
             next_start = next_page_url.split('start=')[-1]
             current_start = int(next_start)

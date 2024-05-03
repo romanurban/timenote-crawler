@@ -24,14 +24,13 @@ def process_json_file(json_path, base_url):
     for index, item in enumerate(data, start=1):
         image_url = item.get('main_image_url')
         if image_url and image_url.startswith(base_url):
-            # Replace the base URL and slashes with underscores for filename
             filename = image_url.replace(base_url, '').replace('/', '_')
             save_path = os.path.join(os.path.dirname(json_path), filename)
             
             if not os.path.exists(save_path):
                 print(f"Downloading {index}/{len(data)}: {filename}")
                 download_image(image_url, save_path)
-                # Polite pause after each download
+                # polite pause after each download
                 time.sleep(randint(1, 3))
 
 def find_and_process_json_files(start_directory, base_url):
@@ -44,7 +43,6 @@ def find_and_process_json_files(start_directory, base_url):
     for json_path in json_files:
         threading.Thread(target=process_json_file, args=(json_path, base_url)).start()
 
-# Define the base URL to be replaced and the start directory for JSON files
 base_url = 'https://media2.nekropole.info/'
 start_directory = 'data/'
 find_and_process_json_files(start_directory, base_url)
